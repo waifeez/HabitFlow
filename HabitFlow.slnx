@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="HabitFlow.App/HabitFlow.App.csproj" />
+  <Project Path="HabitFlow.Core/HabitFlow.Core.csproj" />
+  <Project Path="HabitFlow.Data/HabitFlow.Data.csproj" />
+</Solution>
