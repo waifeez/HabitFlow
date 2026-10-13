@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HabitFlow.Core.Models;
 using HabitFlow.Core.Services;
 using HabitFlow.Data;
 
@@ -15,6 +16,17 @@ public partial class MainViewModel : ObservableObject
 
     public string[] Emojis { get; } = { "✅", "🏃", "📚", "💧", "💻", "🧘", "🎸", "😴" };
 
+    public List<DayOptionViewModel> DayOptions { get; } = new()
+    {
+        new("Пн", WeekDays.Monday),
+        new("Вт", WeekDays.Tuesday),
+        new("Ср", WeekDays.Wednesday),
+        new("Чт", WeekDays.Thursday),
+        new("Пт", WeekDays.Friday),
+        new("Сб", WeekDays.Saturday),
+        new("Вс", WeekDays.Sunday),
+    };
+
     public string TodayText =>
         DateTime.Today.ToString("d MMMM", new CultureInfo("ru-RU"));
 
@@ -23,6 +35,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string newHabitName = string.Empty;
     [ObservableProperty] private string selectedEmoji = "✅";
     [ObservableProperty] private string summary = string.Empty;
+    [ObservableProperty] private string addError = string.Empty;
     [ObservableProperty] private int level = 1;
     [ObservableProperty] private int xpIntoLevel;
 
@@ -42,13 +55,16 @@ public partial class MainViewModel : ObservableObject
                 Id = h.Id,
                 Name = h.Name,
                 Emoji = h.Emoji,
-                Streak = StreakCalculator.Current(dates, today),
+                Days = h.Days,
+                IsScheduledToday = WeekDays.IsScheduled(h.Days, today),
+                Streak = StreakCalculator.Current(dates, today, h.Days),
                 IsDoneToday = dates.Contains(today)
             });
         }
 
-        var done = Habits.Count(h => h.IsDoneToday);
-        Summary = $"{done} из {Habits.Count} выполнено";
+        var scheduled = Habits.Count(h => h.IsScheduledToday);
+        var done = Habits.Count(h => h.IsScheduledToday && h.IsDoneToday);
+        Summary = $"{done} из {scheduled} на сегодня";
 
         var xp = LevelCalculator.Xp(habits.Sum(h => h.Logs.Count));
         Level = LevelCalculator.Level(xp);
@@ -61,8 +77,19 @@ public partial class MainViewModel : ObservableObject
         var name = NewHabitName.Trim();
         if (name.Length == 0) return;
 
-        await _repo.AddAsync(name, SelectedEmoji);
+        var mask = DayOptions.Where(d => d.IsSelected).Sum(d => d.Mask);
+        if (mask == 0)
+        {
+            AddError = "Выберите хотя бы один день недели";
+            return;
+        }
+
+        await _repo.AddAsync(name, SelectedEmoji, mask);
+
+        AddError = string.Empty;
         NewHabitName = string.Empty;
+        foreach (var d in DayOptions) d.IsSelected = true;
+
         await LoadAsync();
     }
 
