@@ -45,4 +45,20 @@ public class HabitRepository
         db.Habits.Remove(habit);
         await db.SaveChangesAsync();
     }
+
+    public async Task<HashSet<string>> GetUnlockedKeysAsync()
+    {
+        using var db = AppDbContext.Create();
+        var keys = await db.UnlockedAchievements.Select(a => a.Key).ToListAsync();
+        return keys.ToHashSet();
+    }
+
+    public async Task UnlockAsync(IEnumerable<string> keys)
+    {
+        using var db = AppDbContext.Create();
+        foreach (var key in keys)
+            db.UnlockedAchievements.Add(new UnlockedAchievement { Key = key });
+
+        await db.SaveChangesAsync();
+    }
 }

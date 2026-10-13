@@ -65,6 +65,28 @@ namespace HabitFlow.Data.Migrations
                     b.ToTable("HabitLogs");
                 });
 
+            modelBuilder.Entity("HabitFlow.Core.Models.UnlockedAchievement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UnlockedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("UnlockedAchievements");
+                });
+
             modelBuilder.Entity("HabitFlow.Core.Models.HabitLog", b =>
                 {
                     b.HasOne("HabitFlow.Core.Models.Habit", "Habit")

@@ -7,6 +7,7 @@ public class AppDbContext : DbContext
 {
     public DbSet<Habit> Habits => Set<Habit>();
     public DbSet<HabitLog> HabitLogs => Set<HabitLog>();
+    public DbSet<UnlockedAchievement> UnlockedAchievements => Set<UnlockedAchievement>();
 
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
@@ -38,5 +39,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<HabitLog>()
             .HasIndex(l => new { l.HabitId, l.Date })
             .IsUnique();
+
+        // каждое достижение можно получить только один раз
+        modelBuilder.Entity<UnlockedAchievement>(e =>
+        {
+            e.Property(a => a.Key).HasMaxLength(50).IsRequired();
+            e.HasIndex(a => a.Key).IsUnique();
+        });
     }
 }
