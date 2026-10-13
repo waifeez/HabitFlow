@@ -27,10 +27,12 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<Habit>()
-            .Property(h => h.Name)
-            .HasMaxLength(100)
-            .IsRequired();
+        modelBuilder.Entity<Habit>(e =>
+        {
+            e.Property(h => h.Name).HasMaxLength(100).IsRequired();
+            // уже существующие привычки получат «каждый день»
+            e.Property(h => h.Days).HasDefaultValue(WeekDays.All);
+        });
 
         // одна отметка на привычку в день
         modelBuilder.Entity<HabitLog>()

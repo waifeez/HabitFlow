@@ -26,6 +26,11 @@ namespace HabitFlow.Data.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("Days")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(127);
+
                     b.Property<string>("Emoji")
                         .IsRequired()
                         .HasColumnType("TEXT");

@@ -15,10 +15,10 @@ public class HabitRepository
             .ToListAsync();
     }
 
-    public async Task AddAsync(string name, string emoji)
+    public async Task AddAsync(string name, string emoji, int days = WeekDays.All)
     {
         using var db = AppDbContext.Create();
-        db.Habits.Add(new Habit { Name = name, Emoji = emoji });
+        db.Habits.Add(new Habit { Name = name, Emoji = emoji, Days = days });
         await db.SaveChangesAsync();
     }
 
