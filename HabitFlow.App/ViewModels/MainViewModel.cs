@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Windows.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HabitFlow.Core.Models;
@@ -10,10 +11,21 @@ namespace HabitFlow.App.ViewModels;
 
 public partial class MainViewModel : ObservableObject
 {
+    private static readonly string[] DayNames = { "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс" };
+
+    // от пустой клетки к самой насыщенной
+    private static readonly Brush[] HeatBrushes =
+    {
+        MakeBrush("#EEEEEE"), MakeBrush("#D1C4E9"), MakeBrush("#B39DDB"),
+        MakeBrush("#7E57C2"), MakeBrush("#512DA8")
+    };
+
     private readonly HabitRepository _repo = new();
 
     public ObservableCollection<HabitItemViewModel> Habits { get; } = new();
     public ObservableCollection<AchievementItemViewModel> Achievements { get; } = new();
+    public ObservableCollection<BarItemViewModel> WeekBars { get; } = new();
+    public ObservableCollection<HeatCellViewModel> HeatCells { get; } = new();
 
     public string[] Emojis { get; } = { "✅", "🏃", "📚", "💧", "💻", "🧘", "🎸", "😴" };
 
@@ -42,7 +54,19 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private int level = 1;
     [ObservableProperty] private int xpIntoLevel;
 
+    [ObservableProperty] private int statTotalChecks;
+    [ObservableProperty] private int statLongestStreak;
+    [ObservableProperty] private int statHabitCount;
+    [ObservableProperty] private string statCompletion = "0%";
+
     private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+
+    private static Brush MakeBrush(string hex)
+    {
+        var brush = (SolidColorBrush)new BrushConverter().ConvertFromString(hex)!;
+        brush.Freeze();
+        return brush;
+    }
 
     public async Task LoadAsync()
     {
@@ -76,7 +100,79 @@ public partial class MainViewModel : ObservableObject
         Level = LevelCalculator.Level(xp);
         XpIntoLevel = LevelCalculator.XpIntoLevel(xp);
 
+        UpdateStats(habits);
         await UpdateAchievementsAsync(totalChecks);
+    }
+
+    private void UpdateStats(List<Habit> habits)
+    {
+        var today = Today;
+
+        var inputs = habits
+            .Select(h => new HabitStatsInput(
+                h.Days,
+                DateOnly.FromDateTime(h.CreatedAt),
+                h.Logs.Select(l => l.Date).ToHashSet()))
+            .ToList();
+
+        var counts = StatisticsCalculator.CountsByDay(inputs);
+
+        StatTotalChecks = habits.Sum(h => h.Logs.Count);
+        StatHabitCount = habits.Count;
+        StatLongestStreak = inputs.Count == 0
+            ? 0
+            : inputs.Max(i => StatisticsCalculator.LongestStreak(i.Dates, i.Days));
+        StatCompletion = StatisticsCalculator.CompletionPercent(inputs, today) + "%";
+
+        // последние 7 дней
+        var week = Enumerable.Range(0, 7).Select(i => today.AddDays(i - 6)).ToList();
+        var weekMax = Math.Max(1, week.Max(d => counts.GetValueOrDefault(d)));
+
+        WeekBars.Clear();
+        foreach (var d in week)
+        {
+            var c = counts.GetValueOrDefault(d);
+            WeekBars.Add(new BarItemViewModel
+            {
+                Label = DayNames[((int)d.DayOfWeek + 6) % 7],
+                Count = c,
+                BarHeight = c == 0 ? 2 : Math.Max(6, 90.0 * c / weekMax)
+            });
+        }
+
+        // календарь активности: 12 недель, строки = дни недели, столбцы = недели
+        var monday = today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
+        var start = monday.AddDays(-7 * 11);
+        var heatMax = Enumerable.Range(0, 84).Max(i => counts.GetValueOrDefault(start.AddDays(i)));
+
+        HeatCells.Clear();
+        for (var row = 0; row < 7; row++)
+        {
+            for (var col = 0; col < 12; col++)
+            {
+                var d = start.AddDays(col * 7 + row);
+                if (d > today)
+                {
+                    HeatCells.Add(new HeatCellViewModel { Fill = Brushes.Transparent, Tip = null });
+                    continue;
+                }
+
+                var c = counts.GetValueOrDefault(d);
+                HeatCells.Add(new HeatCellViewModel
+                {
+                    Fill = HeatBrushes[HeatLevel(c, heatMax)],
+                    Tip = $"{d:dd.MM.yyyy}: {c} отм."
+                });
+            }
+        }
+    }
+
+    private static int HeatLevel(int count, int max)
+    {
+        if (count <= 0 || max <= 0) return 0;
+
+        var ratio = (double)count / max;
+        return ratio <= 0.25 ? 1 : ratio <= 0.5 ? 2 : ratio <= 0.75 ? 3 : 4;
     }
 
     private async Task UpdateAchievementsAsync(int totalChecks)
